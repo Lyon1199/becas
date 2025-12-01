@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Http\Controllers\Api\Becayuda;
+
+use App\Http\Controllers\Controller;
+use App\Models\Becayuda\BaAsignaciones;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+
+class BaAsignacionesController extends Controller
+{
+    private function respond($data = null, $message = '', $status = 200)
+    {
+        return response()->json([
+            'success' => $status >= 200 && $status < 300,
+            'data'    => $data,
+            'message' => $message,
+        ], $status);
+    }
+
+    private function respondError($message, $status = 400, $data = null)
+    {
+        return response()->json([
+            'success' => false,
+            'data'    => $data,
+            'message' => $message,
+        ], $status);
+    }
+
+    public function index()
+    {
+        try {
+            $items = BaAsignaciones::with(['postulacion'])
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return $this->respond($items);
+        } catch (\Throwable $e) {
+            Log::error('Error al obtener asignaciones: '.$e->getMessage());
+            return $this->respondError('Error al obtener asignaciones', 500);
+        }
+    }
+
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id_postulacion'  => 'required|exists:becayuda.ba_postulaciones,id',
+            'monto'           => 'required|numeric',
+            'porcentaje_sbu'  => 'nullable|numeric',
+            'fecha_asignacion'=> 'required|date',
+            'resolucion'      => 'nullable|string',
+            'estado'          => 'required|boolean',
+            'id_user_created' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->respondError($validator->errors()->first(), 422);
+        }
+
+        try {
+            $data = $request->all();
+            $data['id_user_updated'] = $data['id_user_created'];
+
+            $item = BaAsignaciones::create($data);
+
+            return $this->respond($item, 'Asignación creada exitosamente', 201);
+        } catch (\Throwable $e) {
+            Log::error('Error creando asignación: '.$e->getMessage());
+            return $this->respondError('Error al crear asignación', 500);
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $item = BaAsignaciones::with(['postulacion', 'pagos'])->findOrFail($id);
+            return $this->respond($item);
+        } catch (\Throwable $e) {
+            return $this->respondError('Asignación no encontrada', 404);
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'id_postulacion'  => 'sometimes|required|exists:becayuda.ba_postulaciones,id',
+            'monto'           => 'sometimes|required|numeric',
+            'porcentaje_sbu'  => 'sometimes|nullable|numeric',
+            'fecha_asignacion'=> 'sometimes|required|date',
+            'resolucion'      => 'sometimes|nullable|string',
+            'estado'          => 'sometimes|required|boolean',
+            'id_user_updated' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->respondError($validator->errors()->first(), 422);
+        }
+
+        try {
+            $item = BaAsignaciones::findOrFail($id);
+            $item->update($request->all());
+
+            return $this->respond($item, 'Asignación actualizada correctamente');
+        } catch (\Throwable $e) {
+            Log::error('Error actualizando asignación: '.$e->getMessage());
+            return $this->respondError('Error al actualizar asignación', 500);
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $item = BaAsignaciones::findOrFail($id);
+
+            if ($item->pagos()->exists()) {
+                return $this->respondError('No se puede eliminar: tiene pagos asociados', 409);
+            }
+
+            $item->delete();
+            return $this->respond(null, 'Asignación eliminada correctamente');
+        } catch (\Throwable $e) {
+            Log::error('Error eliminando asignación: '.$e->getMessage());
+            return $this->respondError('Error al eliminar asignación', 500);
+        }
+    }
+}
