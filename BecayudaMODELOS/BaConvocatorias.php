@@ -3,15 +3,18 @@
 namespace App\Models\Becayuda;
 
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Becayuda\BaPeriodos;
 
 class BaConvocatorias extends Model
 {
     protected $connection = 'pgsql';
-    protected $table = 'becayuda.ba_convocatorias'; // ajusta si tu tabla se llama distinto
+
+    // IMPORTANTE: incluir el esquema porque la tabla está en "becayuda"
+    protected $table = 'becayuda.ba_convocatorias';
+
     protected $primaryKey = 'id';
-    protected $keyType = 'int';
-    public $incrementing = true;
+    protected $keyType    = 'int';
+    public $incrementing  = true;
+    public $timestamps    = true;
 
     protected $fillable = [
         'id_periodo',
@@ -27,18 +30,7 @@ class BaConvocatorias extends Model
 
     protected $casts = [
         'estado'       => 'boolean',
-        'fecha_inicio' => 'datetime',
-        'fecha_fin'    => 'datetime',
+        'fecha_inicio' => 'date',
+        'fecha_fin'    => 'date',
     ];
-
-    public $timestamps = true;
-
-    public function periodo()
-    {
-        return $this->belongsTo(
-            BaPeriodos::class,
-            'id_periodo',
-            'id'
-        );
-    }
 }

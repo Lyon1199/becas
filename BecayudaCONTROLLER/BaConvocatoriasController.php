@@ -1,140 +1,253 @@
 <?php
+
 namespace App\Http\Controllers\Api\Becayuda;
-//namespace App\Http\Controllers\Api\Becayuda;
 
 use App\Http\Controllers\Controller;
-use App\Models\Becayuda\BaPeriodos;
-use App\Models\Becayuda\BaConvocatorias;
-//use App\Models\Becayuda\BaConvocatorias;
-//use App\Models\Becayuda\BaPeriodos;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use App\Models\Becayuda\BaConvocatorias;
 
 class BaConvocatoriasController extends Controller
 {
-    private function respond($data = null, $message = '', $status = 200)
-    {
-        return response()->json([
-            'success' => $status >= 200 && $status < 300,
-            'data'    => $data,
-            'message' => $message,
-        ], $status);
-    }
-
-    private function respondError($message, $status = 400, $data = null)
-    {
-        return response()->json([
-            'success' => false,
-            'data'    => $data,
-            'message' => $message,
-        ], $status);
-    }
-
     /**
-     * GET /api/becayuda/convocatorias
+     * Lista de convocatorias
      */
     public function index()
     {
-        try {
-            $convocatorias = BaConvocatorias::with('periodo')
-                ->orderBy('created_at', 'desc')
-                ->get();
+        $convocatorias = BaConvocatorias::orderBy('id', 'desc')->get();
 
-            return $this->respond($convocatorias);
-        } catch (\Throwable $e) {
-            Log::error('Error al obtener convocatorias: ' . $e->getMessage());
-            return $this->respondError('Error al obtener convocatorias', 500);
-        }
+        return response()->json([
+            'status' => true,
+            'data'   => $convocatorias,
+        ]);
     }
 
     /**
-     * POST /api/becayuda/convocatorias
+     * Crear una nueva convocatoria
      */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'id_periodo'      => 'required|exists:becayuda.ba_periodos,id',
-            'descripcion'     => 'required|string|max:500',
-            'fecha_inicio'    => 'required|date',
-            'fecha_fin'       => 'required|date|after_or_equal:fecha_inicio',
-            'estado'          => 'required|boolean',
-            'id_user_created' => 'required|integer',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->respondError($validator->errors()->first(), 422);
-        }
-
         try {
-            $data = $request->all();
-            $data['id_user_updated'] = $data['id_user_created'];
+            // VALIDACIÓN
+            $validated = $request->validate([
+                'id_periodo'        => ['required', 'integer'],
+                'nombre'            => ['required', 'string', 'max:255'],
+                'descripcion'       => ['nullable', 'string'],
+                'tipo_convocatoria' => [
+                    'required',
+                    'string',
+                    // solo 'abierta' o 'focalizada'
+                    Rule::in(['abierta', 'focalizada']),
+                ],
+                'fecha_inicio'      => ['required', 'date'],
+                'fecha_fin'         => ['required', 'date', 'after_or_equal:fecha_inicio'],
+                'estado'            => ['required', 'boolean'],
+            ]);
 
+            // Verificamos que el periodo exista en becayuda.ba_periodos
+            $periodoExiste = DB::connection('pgsql')
+                ->table('becayuda.ba_periodos')
+                ->where('id', $validated['id_periodo'])
+                ->exists();
+
+            if (!$periodoExiste) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'El periodo seleccionado no existe',
+                    'errors'  => [
+                        'id_periodo' => ['El periodo indicado no existe en la base de datos.'],
+                    ],
+                ], 422);
+            }
+
+            // Usuario autenticado (opcional, si usas Sanctum)
+            $userId = optional($request->user())->id;
+
+            // Datos a guardar
+            $data = [
+                'id_periodo'        => $validated['id_periodo'],
+                'nombre'            => $validated['nombre'],
+                'descripcion'       => $validated['descripcion'] ?? null,
+                'tipo_convocatoria' => $validated['tipo_convocatoria'],
+                'fecha_inicio'      => $validated['fecha_inicio'],
+                'fecha_fin'         => $validated['fecha_fin'],
+                'estado'            => $validated['estado'],
+            ];
+
+            if ($userId) {
+                $data['id_user_created'] = $userId;
+                $data['id_user_updated'] = $userId;
+            }
+
+            // INSERT a la tabla becayuda.ba_convocatorias
             $convocatoria = BaConvocatorias::create($data);
 
-            return $this->respond($convocatoria, 'Convocatoria creada exitosamente', 201);
+            return response()->json([
+                'status'  => true,
+                'message' => 'Convocatoria creada correctamente',
+                'data'    => $convocatoria,
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Errores de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+
         } catch (\Throwable $e) {
-            Log::error('Error creando convocatoria: ' . $e->getMessage());
-            return $this->respondError('Error al crear convocatoria', 500);
+
+            Log::error('Error creando convocatoria: '.$e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error interno al crear la convocatoria',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
     }
 
     /**
-     * GET /api/becayuda/convocatorias/{id}
+     * Mostrar una convocatoria específica
      */
-    public function show($id)
+    public function show($convocatoria)
     {
-        try {
-            $convocatoria = BaConvocatorias::with('periodo')->findOrFail($id);
-            return $this->respond($convocatoria);
-        } catch (\Throwable $e) {
-            return $this->respondError('Convocatoria no encontrada', 404);
-        }
-    }
+        $convocatoria = BaConvocatorias::find($convocatoria);
 
-    /**
-     * PUT /api/becayuda/convocatorias/{id}
-     */
-    public function update(Request $request, $id)
-    {
-        $validator = Validator::make($request->all(), [
-            'id_periodo'      => 'sometimes|required|exists:becayuda.ba_periodos,id',
-            'descripcion'     => 'sometimes|required|string|max:500',
-            'fecha_inicio'    => 'sometimes|required|date',
-            'fecha_fin'       => 'sometimes|required|date|after_or_equal:fecha_inicio',
-            'estado'          => 'sometimes|required|boolean',
-            'id_user_updated' => 'required|integer',
+        if (!$convocatoria) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Convocatoria no encontrada',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => true,
+            'data'   => $convocatoria,
         ]);
+    }
 
-        if ($validator->fails()) {
-            return $this->respondError($validator->errors()->first(), 422);
-        }
-
+    /**
+     * Actualizar una convocatoria
+     */
+    public function update(Request $request, $convocatoria)
+    {
         try {
-            $convocatoria = BaConvocatorias::findOrFail($id);
+            $convocatoria = BaConvocatorias::find($convocatoria);
 
-            $convocatoria->update($request->all());
+            if (!$convocatoria) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Convocatoria no encontrada',
+                ], 404);
+            }
 
-            return $this->respond($convocatoria, 'Convocatoria actualizada correctamente');
+            $validated = $request->validate([
+                'id_periodo'        => ['sometimes', 'integer'],
+                'nombre'            => ['sometimes', 'string', 'max:255'],
+                'descripcion'       => ['nullable', 'string'],
+                'tipo_convocatoria' => [
+                    'sometimes',
+                    'string',
+                    Rule::in(['abierta', 'focalizada']),
+                ],
+                'fecha_inicio'      => ['sometimes', 'date'],
+                'fecha_fin'         => ['sometimes', 'date', 'after_or_equal:fecha_inicio'],
+                'estado'            => ['sometimes', 'boolean'],
+            ]);
+
+            // Si viene id_periodo, verificar que exista
+            if (isset($validated['id_periodo'])) {
+                $periodoExiste = DB::connection('pgsql')
+                    ->table('becayuda.ba_periodos')
+                    ->where('id', $validated['id_periodo'])
+                    ->exists();
+
+                if (!$periodoExiste) {
+                    return response()->json([
+                        'status'  => false,
+                        'message' => 'El periodo seleccionado no existe',
+                        'errors'  => [
+                            'id_periodo' => ['El periodo indicado no existe en la base de datos.'],
+                        ],
+                    ], 422);
+                }
+            }
+
+            $userId = optional($request->user())->id;
+            if ($userId) {
+                $validated['id_user_updated'] = $userId;
+            }
+
+            $convocatoria->fill($validated);
+            $convocatoria->save();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Convocatoria actualizada correctamente',
+                'data'    => $convocatoria,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Errores de validación',
+                'errors'  => $e->errors(),
+            ], 422);
+
         } catch (\Throwable $e) {
-            Log::error('Error actualizando convocatoria: ' . $e->getMessage());
-            return $this->respondError('Error al actualizar convocatoria', 500);
+
+            Log::error('Error actualizando convocatoria: '.$e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error interno al actualizar la convocatoria',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
     }
 
     /**
-     * DELETE /api/becayuda/convocatorias/{id}
+     * Eliminar una convocatoria
      */
-    public function destroy($id)
+    public function destroy($convocatoria)
     {
         try {
-            $convocatoria = BaConvocatorias::findOrFail($id);
+            $convocatoria = BaConvocatorias::find($convocatoria);
+
+            if (!$convocatoria) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Convocatoria no encontrada',
+                ], 404);
+            }
+
             $convocatoria->delete();
 
-            return $this->respond(null, 'Convocatoria eliminada correctamente');
+            return response()->json([
+                'status'  => true,
+                'message' => 'Convocatoria eliminada correctamente',
+            ]);
+
         } catch (\Throwable $e) {
-            Log::error('Error eliminando convocatoria: ' . $e->getMessage());
-            return $this->respondError('Error al eliminar convocatoria', 500);
+
+            Log::error('Error eliminando convocatoria: '.$e->getMessage(), [
+                'exception' => $e,
+            ]);
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error interno al eliminar la convocatoria',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
     }
 }
