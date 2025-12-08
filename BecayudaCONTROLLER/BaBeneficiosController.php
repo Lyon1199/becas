@@ -5,121 +5,141 @@ namespace App\Http\Controllers\Api\Becayuda;
 use App\Http\Controllers\Controller;
 use App\Models\Becayuda\BaBeneficios;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 
 class BaBeneficiosController extends Controller
 {
-    private function respond($data = null, $message = '', $status = 200)
-    {
-        return response()->json([
-            'success' => $status >= 200 && $status < 300,
-            'data'    => $data,
-            'message' => $message,
-        ], $status);
-    }
-
-    private function respondError($message, $status = 400, $data = null)
-    {
-        return response()->json([
-            'success' => false,
-            'data'    => $data,
-            'message' => $message,
-        ], $status);
-    }
-
     public function index()
     {
-        try {
-            $items = BaBeneficios::orderBy('created_at', 'desc')->get();
-            return $this->respond($items);
-        } catch (\Throwable $e) {
-            Log::error('Error al obtener beneficios: '.$e->getMessage());
-            return $this->respondError('Error al obtener beneficios', 500);
-        }
+        $beneficios = BaBeneficios::orderBy('id', 'asc')->get();
+
+        return response()->json([
+            'status' => true,
+            'data'   => $beneficios,
+        ]);
     }
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'descripcion_sistema'  => 'required|string|max:500',
-            'descripcion_senescyt' => 'nullable|string|max:500',
-            'tipo_beneficio'       => 'required|string|max:100',
-            'requisitos_unicos'    => 'nullable',
-            'estado'               => 'required|boolean',
-            'id_user_created'      => 'required|integer',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->respondError($validator->errors()->first(), 422);
-        }
-
         try {
-            $data = $request->all();
-            $data['id_user_updated'] = $data['id_user_created'];
+            $validated = $request->validate([
+                'descripcion_sistema'  => 'required|string',
+                'descripcion_senescyt' => 'required|string',
+                'tipo_beneficio'       => 'required|string|in:beca,ayuda',
+                'promedio_minimo'      => 'nullable|numeric',
+                'estado'               => 'required|boolean',
+            ]);
 
-            $item = BaBeneficios::create($data);
+            $userId = Auth::id() ?? 1; // temporal por si no usas auth aún
 
-            return $this->respond($item, 'Beneficio creado exitosamente', 201);
+            $beneficio = BaBeneficios::create([
+                'descripcion_sistema'  => $validated['descripcion_sistema'],
+                'descripcion_senescyt' => $validated['descripcion_senescyt'],
+                'tipo_beneficio'       => $validated['tipo_beneficio'],
+                // Guardamos SOLO el número en requisitos_unicos
+                'requisitos_unicos'    => $validated['promedio_minimo'] ?? null,
+                'estado'               => $validated['estado'],
+                'id_user_created'      => $userId,
+                'id_user_updated'      => $userId,
+            ]);
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Beneficio creado correctamente',
+                'data'    => $beneficio,
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Errores de validación',
+                'errors'  => $e->errors(),
+            ], 422);
         } catch (\Throwable $e) {
-            Log::error('Error creando beneficio: '.$e->getMessage());
-            return $this->respondError('Error al crear beneficio', 500);
+            Log::error('Error al crear beneficio: ' . $e->getMessage());
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error interno al crear el beneficio',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
     }
 
     public function show($id)
     {
-        try {
-            $item = BaBeneficios::findOrFail($id);
-            return $this->respond($item);
-        } catch (\Throwable $e) {
-            return $this->respondError('Beneficio no encontrado', 404);
-        }
+        $beneficio = BaBeneficios::findOrFail($id);
+
+        return response()->json([
+            'status' => true,
+            'data'   => $beneficio,
+        ]);
     }
 
     public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'descripcion_sistema'  => 'sometimes|required|string|max:500',
-            'descripcion_senescyt' => 'sometimes|nullable|string|max:500',
-            'tipo_beneficio'       => 'sometimes|required|string|max:100',
-            'requisitos_unicos'    => 'sometimes|nullable',
-            'estado'               => 'sometimes|required|boolean',
-            'id_user_updated'      => 'required|integer',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->respondError($validator->errors()->first(), 422);
-        }
-
         try {
-            $item = BaBeneficios::findOrFail($id);
-            $item->update($request->all());
+            $validated = $request->validate([
+                'descripcion_sistema'  => 'sometimes|required|string',
+                'descripcion_senescyt' => 'sometimes|required|string',
+                'tipo_beneficio'       => 'sometimes|required|string|in:beca,ayuda',
+                'promedio_minimo'      => 'nullable|numeric',
+                'estado'               => 'sometimes|required|boolean',
+            ]);
 
-            return $this->respond($item, 'Beneficio actualizado correctamente');
+            $beneficio = BaBeneficios::findOrFail($id);
+
+            if (isset($validated['descripcion_sistema'])) {
+                $beneficio->descripcion_sistema = $validated['descripcion_sistema'];
+            }
+            if (isset($validated['descripcion_senescyt'])) {
+                $beneficio->descripcion_senescyt = $validated['descripcion_senescyt'];
+            }
+            if (isset($validated['tipo_beneficio'])) {
+                $beneficio->tipo_beneficio = $validated['tipo_beneficio'];
+            }
+            if (array_key_exists('promedio_minimo', $validated)) {
+                $beneficio->requisitos_unicos = $validated['promedio_minimo'];
+            }
+            if (isset($validated['estado'])) {
+                $beneficio->estado = $validated['estado'];
+            }
+
+            $beneficio->id_user_updated = Auth::id() ?? $beneficio->id_user_updated;
+            $beneficio->save();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Beneficio actualizado correctamente',
+                'data'    => $beneficio,
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Errores de validación',
+                'errors'  => $e->errors(),
+            ], 422);
         } catch (\Throwable $e) {
-            Log::error('Error actualizando beneficio: '.$e->getMessage());
-            return $this->respondError('Error al actualizar beneficio', 500);
+            Log::error('Error al actualizar beneficio: ' . $e->getMessage());
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error interno al actualizar el beneficio',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
     }
 
     public function destroy($id)
     {
-        try {
-            $item = BaBeneficios::findOrFail($id);
+        $beneficio = BaBeneficios::findOrFail($id);
+        $beneficio->delete();
 
-            if ($item->postulaciones()->exists() || $item->requisitos()->exists()) {
-                return $this->respondError(
-                    'No se puede eliminar: tiene postulaciones o requisitos asociados',
-                    409
-                );
-            }
-
-            $item->delete();
-            return $this->respond(null, 'Beneficio eliminado correctamente');
-        } catch (\Throwable $e) {
-            Log::error('Error eliminando beneficio: '.$e->getMessage());
-            return $this->respondError('Error al eliminar beneficio', 500);
-        }
+        return response()->json([
+            'status'  => true,
+            'message' => 'Beneficio eliminado correctamente',
+        ]);
     }
 }

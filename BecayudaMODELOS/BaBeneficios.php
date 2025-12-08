@@ -2,15 +2,17 @@
 
 namespace App\Models\Becayuda;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class BaBeneficios extends Model
 {
-    protected $connection = 'pgsql';
-    protected $table      = 'becayuda.ba_beneficios';
+    use HasFactory;
+
+    // Tabla con esquema
+    protected $table = 'becayuda.ba_beneficios';
     protected $primaryKey = 'id';
-    protected $keyType    = 'int';
-    public $incrementing  = true;
+    public $timestamps = true;
 
     protected $fillable = [
         'descripcion_sistema',
@@ -22,28 +24,39 @@ class BaBeneficios extends Model
         'id_user_updated',
     ];
 
+    // requisitos_unicos se guarda como número (en la BD es jsonb pero solo guardamos 9, 9.5, etc.)
     protected $casts = [
-        'estado'           => 'boolean',
-        'requisitos_unicos'=> 'array', // si en BD es JSON; si es texto cambia a string
+        'requisitos_unicos' => 'float',
+        'estado'            => 'boolean',
     ];
 
-    public $timestamps = true;
+    // No mostrar la columna cruda en el JSON
+    protected $hidden = [
+        'requisitos_unicos',
+    ];
 
-    public function requisitos()
+    // Campos calculados que sí se devuelven al frontend
+    protected $appends = [
+        'promedio_minimo',
+        'mensaje_requisito',
+    ];
+
+    // Devuelve el número de promedio mínimo
+    public function getPromedioMinimoAttribute()
     {
-        return $this->hasMany(
-            BaRequisitosBeneficios::class,
-            'id_beneficio',
-            'id'
-        );
+        return $this->requisitos_unicos;
     }
 
-    public function postulaciones()
+    // Devuelve el mensaje "Promedio mínimo X"
+    public function getMensajeRequisitoAttribute()
     {
-        return $this->hasMany(
-            BaPostulaciones::class,
-            'id_beneficio',
-            'id'
-        );
+        if ($this->requisitos_unicos === null) {
+            return null;
+        }
+
+        // Formateo bonito: 9 o 9.5 (sin muchos decimales feos)
+        $valor = rtrim(rtrim(number_format($this->requisitos_unicos, 2, '.', ''), '0'), '.');
+
+        return 'Promedio mínimo ' . $valor;
     }
 }

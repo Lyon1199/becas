@@ -23,3 +23,10 @@ Route::middleware('auth:sanctum')->prefix('becayuda')->group(function () {
     Route::put('/convocatorias/{convocatoria}', [BaConvocatoriasController::class, 'update']);
     Route::delete('/convocatorias/{convocatoria}', [BaConvocatoriasController::class, 'destroy']);
     });
+
+    //-------- BENEFICIOS --------
+    Route::get('beneficios',         [BaBeneficiosController::class, 'index']);
+    Route::post('beneficios',        [BaBeneficiosController::class, 'store']);
+    Route::get('beneficios/{id}',    [BaBeneficiosController::class, 'show']);
+    Route::put('beneficios/{id}',    [BaBeneficiosController::class, 'update']);
+    Route::delete('beneficios/{id}', [BaBeneficiosController::class, 'destroy']);
