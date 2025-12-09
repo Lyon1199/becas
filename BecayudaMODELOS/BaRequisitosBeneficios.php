@@ -2,15 +2,18 @@
 
 namespace App\Models\Becayuda;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class BaRequisitosBeneficios extends Model
 {
-    protected $connection = 'pgsql';
-    protected $table      = 'becayuda.ba_requisitos_beneficios';
-    protected $primaryKey = 'id';
-    protected $keyType    = 'int';
-    public $incrementing  = true;
+    use HasFactory;
+
+    // Tabla con esquema en PostgreSQL
+    protected $table = 'becayuda.ba_requisitos_beneficios';
+
+    // NO usamos protected $connection = 'becayuda';
+    // Usará la conexión por defecto (pgsql)
 
     protected $fillable = [
         'id_beneficio',
@@ -28,23 +31,9 @@ class BaRequisitosBeneficios extends Model
         'estado'      => 'boolean',
     ];
 
-    public $timestamps = true;
-
+    // Relación opcional con beneficios (si ya tienes BaBeneficios)
     public function beneficio()
     {
-        return $this->belongsTo(
-            BaBeneficios::class,
-            'id_beneficio',
-            'id'
-        );
-    }
-
-    public function convocatoria()
-    {
-        return $this->belongsTo(
-            BaConvocatorias::class,
-            'id_convocatoria',
-            'id'
-        );
+        return $this->belongsTo(BaBeneficios::class, 'id_beneficio');
     }
 }

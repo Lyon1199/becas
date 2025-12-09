@@ -30,3 +30,10 @@ Route::middleware('auth:sanctum')->prefix('becayuda')->group(function () {
     Route::get('beneficios/{id}',    [BaBeneficiosController::class, 'show']);
     Route::put('beneficios/{id}',    [BaBeneficiosController::class, 'update']);
     Route::delete('beneficios/{id}', [BaBeneficiosController::class, 'destroy']);
+
+    // -------- REQUISITOS --------
+    Route::get('/requisitos', [BaRequisitosBeneficiosController::class, 'index']);
+    Route::get('/requisitos/{requisito}', [BaRequisitosBeneficiosController::class, 'show']);
+    Route::post('/requisitos', [BaRequisitosBeneficiosController::class, 'store']);
+    Route::put('/requisitos/{requisito}', [BaRequisitosBeneficiosController::class, 'update']);
+    Route::delete('/requisitos/{requisito}', [BaRequisitosBeneficiosController::class, 'destroy']);
