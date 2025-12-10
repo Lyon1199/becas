@@ -31,34 +31,60 @@ class BaPostulaciones extends Model
 
     public $timestamps = true;
 
+    // ----------------- RELACIONES -----------------
+
     public function beneficio()
     {
-        return $this->belongsTo(BaBeneficios::class, 'id_beneficio', 'id');
+        return $this->belongsTo(
+            BaBeneficios::class,
+            'id_beneficio',
+            'id'
+        );
     }
 
     public function convocatoria()
     {
-        return $this->belongsTo(BaConvocatorias::class, 'id_convocatoria', 'id');
+        return $this->belongsTo(
+            BaConvocatorias::class,
+            'id_convocatoria',
+            'id'
+        );
     }
 
-    // Ajusta este belongsTo al modelo de personas que tengas
+    // Usa la tabla public.users como "personas"
     public function persona()
     {
-        return $this->belongsTo(\App\Models\User::class, 'id_persona', 'id');
+        return $this->belongsTo(
+            \App\Models\User::class,
+            'id_persona',
+            'id'
+        );
     }
 
     public function documentos()
     {
-        return $this->hasMany(BaDocumentosPostulacion::class, 'id_postulacion', 'id');
+        return $this->hasMany(
+            BaDocumentosPostulacion::class,
+            'id_postulacion',
+            'id'
+        );
     }
 
     public function informes()
     {
-        return $this->hasMany(BaInformesTecnicos::class, 'id_postulacion', 'id');
+        return $this->hasMany(
+            BaInformesTecnicos::class,
+            'id_postulacion',
+            'id'
+        );
     }
 
     public function asignaciones()
     {
-        return $this->hasMany(BaAsignaciones::class, 'id_postulacion', 'id');
+        return $this->hasMany(
+            BaAsignaciones::class,
+            'id_postulacion',
+            'id'
+        );
     }
 }

@@ -37,3 +37,10 @@ Route::middleware('auth:sanctum')->prefix('becayuda')->group(function () {
     Route::post('/requisitos', [BaRequisitosBeneficiosController::class, 'store']);
     Route::put('/requisitos/{requisito}', [BaRequisitosBeneficiosController::class, 'update']);
     Route::delete('/requisitos/{requisito}', [BaRequisitosBeneficiosController::class, 'destroy']);
+    
+        // -------- POSTULACIONES --------
+    Route::get('/postulaciones', [BaPostulacionesController::class, 'index']);
+    Route::get('/postulaciones/{id}', [BaPostulacionesController::class, 'show']);
+    Route::post('/postulaciones', [BaPostulacionesController::class, 'store']);
+    Route::put('/postulaciones/{id}', [BaPostulacionesController::class, 'update']);
+    Route::delete('/postulaciones/{id}', [BaPostulacionesController::class, 'destroy']);
