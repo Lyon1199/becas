@@ -5,123 +5,186 @@ namespace App\Http\Controllers\Api\Becayuda;
 use App\Http\Controllers\Controller;
 use App\Models\Becayuda\BaAsignaciones;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class BaAsignacionesController extends Controller
 {
-    private function respond($data = null, $message = '', $status = 200)
+    private const ESTADOS_VALIDOS = ['vigente', 'finalizada', 'revocada', 'perdida'];
+
+    public function index(Request $request)
     {
+        $query = BaAsignaciones::query()->orderByDesc('id');
+
+        if ($request->filled('estado')) {
+            $query->where('estado', mb_strtolower(trim($request->estado)));
+        }
+
+        if ($request->filled('id_postulacion')) {
+            $query->where('id_postulacion', (int)$request->id_postulacion);
+        }
+
         return response()->json([
-            'success' => $status >= 200 && $status < 300,
-            'data'    => $data,
-            'message' => $message,
-        ], $status);
-    }
-
-    private function respondError($message, $status = 400, $data = null)
-    {
-        return response()->json([
-            'success' => false,
-            'data'    => $data,
-            'message' => $message,
-        ], $status);
-    }
-
-    public function index()
-    {
-        try {
-            $items = BaAsignaciones::with(['postulacion'])
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            return $this->respond($items);
-        } catch (\Throwable $e) {
-            Log::error('Error al obtener asignaciones: '.$e->getMessage());
-            return $this->respondError('Error al obtener asignaciones', 500);
-        }
-    }
-
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'id_postulacion'  => 'required|exists:becayuda.ba_postulaciones,id',
-            'monto'           => 'required|numeric',
-            'porcentaje_sbu'  => 'nullable|numeric',
-            'fecha_asignacion'=> 'required|date',
-            'resolucion'      => 'nullable|string',
-            'estado'          => 'required|boolean',
-            'id_user_created' => 'required|integer',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->respondError($validator->errors()->first(), 422);
-        }
-
-        try {
-            $data = $request->all();
-            $data['id_user_updated'] = $data['id_user_created'];
-
-            $item = BaAsignaciones::create($data);
-
-            return $this->respond($item, 'Asignación creada exitosamente', 201);
-        } catch (\Throwable $e) {
-            Log::error('Error creando asignación: '.$e->getMessage());
-            return $this->respondError('Error al crear asignación', 500);
-        }
+            'message' => 'OK',
+            'data' => $query->get()
+        ], 200);
     }
 
     public function show($id)
     {
+        $asignacion = BaAsignaciones::find($id);
+
+        if (!$asignacion) {
+            return response()->json(['message' => 'Asignación no encontrada'], 404);
+        }
+
+        return response()->json([
+            'message' => 'OK',
+            'data' => $asignacion
+        ], 200);
+    }
+
+    public function store(Request $request)
+    {
         try {
-            $item = BaAsignaciones::with(['postulacion', 'pagos'])->findOrFail($id);
-            return $this->respond($item);
+            // Normaliza estado a minúscula (así puedes enviar "VIGENTE" y se guarda "vigente")
+            if ($request->has('estado')) {
+                $request->merge(['estado' => mb_strtolower(trim($request->estado))]);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'id_postulacion' => [
+                    'required',
+                    'integer',
+                    'exists:pgsql.becayuda.ba_postulaciones,id',
+                    // si quieres 1 asignación por postulación, deja esto:
+                    Rule::unique('pgsql.becayuda.ba_asignaciones', 'id_postulacion')
+                ],
+                'monto' => ['required', 'numeric', 'min:0'],
+                'porcentaje_sbu' => ['required', 'numeric', 'min:0'],
+                'fecha_asignacion' => ['required', 'date'],
+                'resolucion' => ['required', 'string', 'max:255'],
+                'estado' => ['required', Rule::in(self::ESTADOS_VALIDOS)],
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Validation Error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $userId = auth()->id();
+            if (!$userId) {
+                return response()->json(['message' => 'No autenticado'], 401);
+            }
+
+            $asignacion = DB::transaction(function () use ($request, $userId) {
+                return BaAsignaciones::create([
+                    'id_postulacion' => (int) $request->id_postulacion,
+                    'monto' => $request->monto,
+                    'porcentaje_sbu' => $request->porcentaje_sbu,
+                    'fecha_asignacion' => $request->fecha_asignacion,
+                    'resolucion' => $request->resolucion,
+                    'estado' => $request->estado,
+                    'id_user_created' => $userId,
+                    'id_user_updated' => null,
+                ]);
+            });
+
+            return response()->json([
+                'message' => 'Asignación creada correctamente',
+                'data' => $asignacion
+            ], 201);
+
         } catch (\Throwable $e) {
-            return $this->respondError('Asignación no encontrada', 404);
+            return response()->json([
+                'message' => 'Server Error',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
-            'id_postulacion'  => 'sometimes|required|exists:becayuda.ba_postulaciones,id',
-            'monto'           => 'sometimes|required|numeric',
-            'porcentaje_sbu'  => 'sometimes|nullable|numeric',
-            'fecha_asignacion'=> 'sometimes|required|date',
-            'resolucion'      => 'sometimes|nullable|string',
-            'estado'          => 'sometimes|required|boolean',
-            'id_user_updated' => 'required|integer',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->respondError($validator->errors()->first(), 422);
-        }
-
         try {
-            $item = BaAsignaciones::findOrFail($id);
-            $item->update($request->all());
+            $asignacion = BaAsignaciones::find($id);
+            if (!$asignacion) {
+                return response()->json(['message' => 'Asignación no encontrada'], 404);
+            }
 
-            return $this->respond($item, 'Asignación actualizada correctamente');
+            if ($request->has('estado')) {
+                $request->merge(['estado' => mb_strtolower(trim($request->estado))]);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'monto' => ['sometimes', 'numeric', 'min:0'],
+                'porcentaje_sbu' => ['sometimes', 'numeric', 'min:0'],
+                'fecha_asignacion' => ['sometimes', 'date'],
+                'resolucion' => ['sometimes', 'string', 'max:255'],
+                'estado' => ['sometimes', Rule::in(self::ESTADOS_VALIDOS)],
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Validation Error',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $userId = auth()->id();
+            if (!$userId) {
+                return response()->json(['message' => 'No autenticado'], 401);
+            }
+
+            $asignacion->fill($request->only([
+                'monto', 'porcentaje_sbu', 'fecha_asignacion', 'resolucion', 'estado'
+            ]));
+            $asignacion->id_user_updated = $userId;
+            $asignacion->save();
+
+            return response()->json([
+                'message' => 'Asignación actualizada correctamente',
+                'data' => $asignacion
+            ], 200);
+
         } catch (\Throwable $e) {
-            Log::error('Error actualizando asignación: '.$e->getMessage());
-            return $this->respondError('Error al actualizar asignación', 500);
+            return response()->json([
+                'message' => 'Server Error',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     public function destroy($id)
     {
         try {
-            $item = BaAsignaciones::findOrFail($id);
-
-            if ($item->pagos()->exists()) {
-                return $this->respondError('No se puede eliminar: tiene pagos asociados', 409);
+            $asignacion = BaAsignaciones::find($id);
+            if (!$asignacion) {
+                return response()->json(['message' => 'Asignación no encontrada'], 404);
             }
 
-            $item->delete();
-            return $this->respond(null, 'Asignación eliminada correctamente');
+            $userId = auth()->id();
+            if (!$userId) {
+                return response()->json(['message' => 'No autenticado'], 401);
+            }
+
+            // "Eliminar" lógico → en tu caso lo mejor es REVOCAR
+            $asignacion->estado = 'revocada';
+            $asignacion->id_user_updated = $userId;
+            $asignacion->save();
+
+            return response()->json([
+                'message' => 'Asignación revocada correctamente',
+                'data' => $asignacion
+            ], 200);
+
         } catch (\Throwable $e) {
-            Log::error('Error eliminando asignación: '.$e->getMessage());
-            return $this->respondError('Error al eliminar asignación', 500);
+            return response()->json([
+                'message' => 'Server Error',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

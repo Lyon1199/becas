@@ -44,3 +44,10 @@ Route::middleware('auth:sanctum')->prefix('becayuda')->group(function () {
     Route::post('/postulaciones', [BaPostulacionesController::class, 'store']);
     Route::put('/postulaciones/{id}', [BaPostulacionesController::class, 'update']);
     Route::delete('/postulaciones/{id}', [BaPostulacionesController::class, 'destroy']);
+
+        // -------- ASIGNACIONES --------
+    Route::get('asignaciones', [BaAsignacionesController::class, 'index']);
+    Route::get('asignaciones/{id}', [BaAsignacionesController::class, 'show']);
+    Route::post('asignaciones', [BaAsignacionesController::class, 'store']);
+    Route::put('asignaciones/{id}', [BaAsignacionesController::class, 'update']);
+    Route::delete('asignaciones/{id}', [BaAsignacionesController::class, 'destroy']);

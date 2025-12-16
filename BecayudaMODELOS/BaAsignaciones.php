@@ -2,15 +2,17 @@
 
 namespace App\Models\Becayuda;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class BaAsignaciones extends Model
 {
+    use HasFactory;
+
     protected $connection = 'pgsql';
-    protected $table      = 'becayuda.ba_asignaciones';
+    protected $table = 'becayuda.ba_asignaciones';
     protected $primaryKey = 'id';
-    protected $keyType    = 'int';
-    public $incrementing  = true;
+    public $timestamps = true;
 
     protected $fillable = [
         'id_postulacion',
@@ -24,21 +26,13 @@ class BaAsignaciones extends Model
     ];
 
     protected $casts = [
-        'monto'           => 'float',
-        'porcentaje_sbu'  => 'float',
-        'fecha_asignacion'=> 'datetime',
-        'estado'          => 'boolean',
+        'monto' => 'decimal:2',
+        'porcentaje_sbu' => 'decimal:2',
+        'fecha_asignacion' => 'date:Y-m-d',
     ];
-
-    public $timestamps = true;
 
     public function postulacion()
     {
         return $this->belongsTo(BaPostulaciones::class, 'id_postulacion', 'id');
-    }
-
-    public function pagos()
-    {
-        return $this->hasMany(BaPagos::class, 'id_asignacion', 'id');
     }
 }
