@@ -51,3 +51,12 @@ Route::middleware('auth:sanctum')->prefix('becayuda')->group(function () {
     Route::post('asignaciones', [BaAsignacionesController::class, 'store']);
     Route::put('asignaciones/{id}', [BaAsignacionesController::class, 'update']);
     Route::delete('asignaciones/{id}', [BaAsignacionesController::class, 'destroy']);
+
+        // -------- PAGOS ---------
+
+    Route::get('pagos', [BaPagosController::class, 'index']);
+    Route::get('pagos/{id}', [BaPagosController::class, 'show']);
+    Route::post('pagos', [BaPagosController::class, 'store']);
+    Route::put('pagos/{id}', [BaPagosController::class, 'update']);
+    Route::patch('pagos/{id}', [BaPagosController::class, 'update']);
+    Route::delete('pagos/{id}', [BaPagosController::class, 'destroy']);
