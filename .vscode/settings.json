@@ -1,0 +1,11 @@
+{
+    "php.validate.executablePath": "php",
+    "php.validate.run": "onSave",
+    "[php]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "bmewburn.vscode-intelephense-client"
+    },
+    "intelephense.files.maxSize": 5000000,
+    "intelephense.completion.fullyQualifyGlobalConstantsAndFunctions": true,
+    "intelephense.environment.phpVersion": "8.0"
+}

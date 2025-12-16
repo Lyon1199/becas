@@ -1,6 +1,9 @@
 <?php
 use App\Http\Controllers\Api\Becayuda\BaPeriodosController; 
 use App\Http\Controllers\Api\Becayuda\BaConvocatoriasController;
+use App\Http\Controllers\Api\Becayuda\BaBeneficiosController;
+use App\Http\Controllers\Api\Becayuda\BaRequisitosBeneficiosController;
+use App\Http\Controllers\Api\Becayuda\BaPostulacionesController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -22,14 +25,13 @@ Route::middleware('auth:sanctum')->prefix('becayuda')->group(function () {
     Route::post('/convocatorias', [BaConvocatoriasController::class, 'store']);
     Route::put('/convocatorias/{convocatoria}', [BaConvocatoriasController::class, 'update']);
     Route::delete('/convocatorias/{convocatoria}', [BaConvocatoriasController::class, 'destroy']);
-    });
 
-    //-------- BENEFICIOS --------
-    Route::get('beneficios',         [BaBeneficiosController::class, 'index']);
-    Route::post('beneficios',        [BaBeneficiosController::class, 'store']);
-    Route::get('beneficios/{id}',    [BaBeneficiosController::class, 'show']);
-    Route::put('beneficios/{id}',    [BaBeneficiosController::class, 'update']);
-    Route::delete('beneficios/{id}', [BaBeneficiosController::class, 'destroy']);
+    // -------- BENEFICIOS --------
+    Route::get('/beneficios', [BaBeneficiosController::class, 'index']);
+    Route::post('/beneficios', [BaBeneficiosController::class, 'store']);
+    Route::get('/beneficios/{id}', [BaBeneficiosController::class, 'show']);
+    Route::put('/beneficios/{id}', [BaBeneficiosController::class, 'update']);
+    Route::delete('/beneficios/{id}', [BaBeneficiosController::class, 'destroy']);
 
     // -------- REQUISITOS --------
     Route::get('/requisitos', [BaRequisitosBeneficiosController::class, 'index']);
@@ -38,9 +40,10 @@ Route::middleware('auth:sanctum')->prefix('becayuda')->group(function () {
     Route::put('/requisitos/{requisito}', [BaRequisitosBeneficiosController::class, 'update']);
     Route::delete('/requisitos/{requisito}', [BaRequisitosBeneficiosController::class, 'destroy']);
     
-        // -------- POSTULACIONES --------
+    // -------- POSTULACIONES --------
     Route::get('/postulaciones', [BaPostulacionesController::class, 'index']);
     Route::get('/postulaciones/{id}', [BaPostulacionesController::class, 'show']);
     Route::post('/postulaciones', [BaPostulacionesController::class, 'store']);
     Route::put('/postulaciones/{id}', [BaPostulacionesController::class, 'update']);
     Route::delete('/postulaciones/{id}', [BaPostulacionesController::class, 'destroy']);
+});
