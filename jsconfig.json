@@ -1,8 +1,0 @@
-{
-    "compilerOptions": {
-        "baseUrl": ".",
-        "paths": {
-            "App/*": ["BecayudaCONTROLLER/*", "BecayudaMODELOS/*"]
-        }
-    }
-}
