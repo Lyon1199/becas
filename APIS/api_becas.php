@@ -1,7 +1,18 @@
 <?php
-use App\Http\Controllers\Api\Becayuda\BaPeriodosController; 
-use App\Http\Controllers\Api\Becayuda\BaConvocatoriasController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Becayuda\BaPeriodosController; 
+use App\Http\Controllers\Api\Becayuda\BaConvocatoriasController; 
+use App\Http\Controllers\Api\Becayuda\BaBeneficiosController;
+use App\Http\Controllers\Api\Becayuda\BaRequisitosBeneficiosController;
+use App\Http\Controllers\Api\Becayuda\BaPostulacionesController;
+use App\Http\Controllers\Api\Becayuda\BaAsignacionesController; 
+use App\Http\Controllers\Api\Becayuda\BaPagosController; 
+use App\Http\Controllers\Api\Becayuda\BaDocumentosPostulacionController;
+use App\Http\Controllers\Api\Becayuda\BaComisionBecasController;
+use App\Http\Controllers\Api\Becayuda\BaComisionMiembrosController;
+use App\Http\Controllers\Api\Becayuda\BaDirectoresController;
+use App\Http\Controllers\Api\Becayuda\BaInformesTecnicosController;
+use App\Http\Controllers\Api\Becayuda\BaFasesConvocatoriaController;
 
 
 //Rutas Becas y Ayudas
